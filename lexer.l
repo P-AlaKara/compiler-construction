@@ -30,6 +30,9 @@ extern int yylineno; // <-- Declare yylineno here
 "else" { return ELSE; }
 "print" { return PRINT; }
 "int" {return INT_KEYWORD; }
+"bool"   { return BOOL_KEYWORD; }
+"true"   { yylval.ival = 1; return BOOLEAN_LITERAL; }
+"false"  { yylval.ival = 0; return BOOLEAN_LITERAL; }
 
 "=="|"!="|"<="|">="|"<"|">" { yylval.sval = strdup(yytext); return COMPARISON_OPERATOR; }
 "=" { yylval.sval = strdup(yytext); return ASSIGNMENT_OPERATOR; }
