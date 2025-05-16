@@ -7,6 +7,7 @@
 
 #include "ast.h"
 #include "semantic.h"
+#include "codegen.h"
 
 ASTNode* root = NULL;
 int yylex(void);
@@ -25,6 +26,8 @@ extern int yylineno;
 %token <sval> IDENTIFIER COMPARISON_OPERATOR ASSIGNMENT_OPERATOR
 %token <sval> PLUS MINUS TIMES DIVIDE
 %token IF ELSE PRINT INT_KEYWORD
+%token <ival> BOOLEAN_LITERAL
+%token BOOL_KEYWORD
 %token LEFT_PAREN RIGHT_PAREN LEFT_BRACE RIGHT_BRACE SEMICOLON
 %token <ival> CONSTANT
 
@@ -58,9 +61,10 @@ statement:
 ;
 
 declaration:
-      INT_KEYWORD IDENTIFIER             { $$ = make_declaration_node($2, NULL); }
-    | INT_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression
-                                      { $$ = make_declaration_node($2, $4); }
+INT_KEYWORD IDENTIFIER             { $$ = make_declaration_node($2, NULL, TYPE_INT); }
+| INT_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression  { $$ = make_declaration_node($2, $4, TYPE_INT); }
+| BOOL_KEYWORD IDENTIFIER  { $$ = make_declaration_node($2, NULL, TYPE_BOOL); }
+| BOOL_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression  { $$ = make_declaration_node($2, $4, TYPE_BOOL); }
 ;
 
 assignment:
@@ -75,6 +79,7 @@ comparison:
 
 expression:
       CONSTANT                        { $$ = make_int_node($1); }
+    | BOOLEAN_LITERAL                 { $$ = make_bool_node($1); }
     | IDENTIFIER                      { $$ = make_var_node($1); }
     | expression PLUS expression      { $$ = make_binop_node("+", $1, $3); }
     | expression MINUS expression     { $$ = make_binop_node("-", $1, $3); }
@@ -107,8 +112,10 @@ int main(int argc, char** argv) {
     // if you stored the root AST node from the parser, you'd print it here
     print_ast(root, 0);
     semantic_check(root);
-
-    printf("semantic analysis passed");
+    
+    print_symbol_table();
+    printf("Generating code...");
+    generate_code(root, "out.tac");
 
     return 0;
 }
