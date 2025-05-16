@@ -5,6 +5,7 @@
 
 typedef enum {
     NODE_INT,
+    NODE_BOOL,
     NODE_VAR,
     NODE_BINOP,
     NODE_ASSIGN,
@@ -16,12 +17,13 @@ typedef enum {
 
 typedef enum {
   TYPE_INT,
-  TYPE_ERROR
+  TYPE_ERROR,
+  TYPE_BOOL
 } Type;
 
 typedef struct ASTNode {
     NodeType type;
-
+ 
     union {
         // NODE_INT
         int int_value;
@@ -46,6 +48,7 @@ typedef struct ASTNode {
         struct {
             char* var_name;
             struct ASTNode* init_value; // can be NULL
+	  Type declared_type;
         } decl;
 
         // NODE_PRINT
@@ -70,10 +73,11 @@ typedef struct ASTNode {
 
 // Create functions
 ASTNode* make_int_node(int value);
+ASTNode* make_bool_node(int value);
 ASTNode* make_var_node(char* name);
 ASTNode* make_binop_node(char* op, ASTNode* left, ASTNode* right);
 ASTNode* make_assign_node(char* name, ASTNode* expr);
-ASTNode* make_declaration_node(char* name, ASTNode* init);
+ASTNode* make_declaration_node(char* name, ASTNode* init, Type declared_type);
 ASTNode* make_print_node(ASTNode* expr);
 ASTNode* make_if_node(ASTNode* condition, ASTNode* if_body, ASTNode* else_body);
 ASTNode* make_stmt_list_node();
