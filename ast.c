@@ -20,6 +20,13 @@ ASTNode* make_int_node(int value) {
     node->int_value = value;
     return node;
 }
+ASTNode* make_bool_node(int value) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    node->type = NODE_BOOL;
+    node->int_value = value; // same field used for ints
+    return node;
+}
+
 
 ASTNode* make_var_node(char* name) {
     ASTNode* node = checked_malloc(sizeof(ASTNode));
@@ -45,11 +52,12 @@ ASTNode* make_assign_node(char* name, ASTNode* expr) {
     return node;
 }
 
-ASTNode* make_declaration_node(char* name, ASTNode* init) {
+ASTNode* make_declaration_node(char* name, ASTNode* init, Type declared_type) {
     ASTNode* node = checked_malloc(sizeof(ASTNode));
     node->type = NODE_DECL;
     node->decl.var_name = strdup(name);
     node->decl.init_value = init;
+    node->decl.declared_type = declared_type;
     return node;
 }
 
@@ -98,6 +106,8 @@ void print_ast(ASTNode* node, int indent) {
         case NODE_INT:
             printf("INT: %d\n", node->int_value);
             break;
+    case NODE_BOOL:
+      printf("BOOL: %d\n", node->int_value);
         case NODE_VAR:
             printf("VAR: %s\n", node->var_name);
             break;
