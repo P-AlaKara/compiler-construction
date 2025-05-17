@@ -21,9 +21,15 @@ ASTNode* make_int_node(int value) {
     return node;
 }
 ASTNode* make_bool_node(int value) {
-    ASTNode* node = malloc(sizeof(ASTNode));
+  printf("DEBUG: Make bool node with value %d\n", value);
+    ASTNode* node = checked_malloc(sizeof(ASTNode));
+    if (!node){
+      fprintf(stderr, "Memory allocation failed for bool node");
+      exit(1);
+    }
     node->type = NODE_BOOL;
     node->int_value = value; // same field used for ints
+    printf("DEBUG: Bool node created %p\n", (void*)node);
     return node;
 }
 
@@ -107,7 +113,8 @@ void print_ast(ASTNode* node, int indent) {
             printf("INT: %d\n", node->int_value);
             break;
     case NODE_BOOL:
-      printf("BOOL: %d\n", node->int_value);
+      printf("BOOL: %s\n", node->int_value ? "true" : "false");
+      break;
         case NODE_VAR:
             printf("VAR: %s\n", node->var_name);
             break;
