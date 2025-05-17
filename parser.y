@@ -1,20 +1,17 @@
 /* parser.y */
-
 %{
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "ast.h"
 #include "semantic.h"
 #include "codegen.h"
-
 ASTNode* root = NULL;
 int yylex(void);
 void yyerror(const char *s);
 extern FILE *yyin;
 extern int yylineno;
-
+int syntax_errors = 0;  // Add a counter for syntax errors
 %}
 
 %union {
@@ -30,16 +27,13 @@ extern int yylineno;
 %token BOOL_KEYWORD
 %token LEFT_PAREN RIGHT_PAREN LEFT_BRACE RIGHT_BRACE SEMICOLON
 %token <ival> CONSTANT
-
 %type <node> program statement_list statement declaration assignment comparison expression
-
 %start program
 
 %left PLUS MINUS
 %left TIMES DIVIDE
 
 %%
-
 program:
     statement_list                     { extern ASTNode* root;
         root = $1; }
@@ -61,10 +55,10 @@ statement:
 ;
 
 declaration:
-INT_KEYWORD IDENTIFIER             { $$ = make_declaration_node($2, NULL, TYPE_INT); }
-| INT_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression  { $$ = make_declaration_node($2, $4, TYPE_INT); }
-| BOOL_KEYWORD IDENTIFIER  { $$ = make_declaration_node($2, NULL, TYPE_BOOL); }
-| BOOL_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression  { $$ = make_declaration_node($2, $4, TYPE_BOOL); }
+    INT_KEYWORD IDENTIFIER             { $$ = make_declaration_node($2, NULL, TYPE_INT); }
+    | INT_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression  { $$ = make_declaration_node($2, $4, TYPE_INT); }
+    | BOOL_KEYWORD IDENTIFIER  { $$ = make_declaration_node($2, NULL, TYPE_BOOL); }
+    | BOOL_KEYWORD IDENTIFIER ASSIGNMENT_OPERATOR expression  { $$ = make_declaration_node($2, $4, TYPE_BOOL); }
 ;
 
 assignment:
@@ -88,11 +82,11 @@ expression:
     | LEFT_PAREN expression RIGHT_PAREN
                                       { $$ = $2; }
 ;
-
 %%
 
 void yyerror(const char *s) {
     fprintf(stderr, "Syntax Error: %s at line %d\n", s, yylineno);
+    syntax_errors++; // Increment the error counter
 }
 
 int main(int argc, char** argv) {
@@ -104,18 +98,29 @@ int main(int argc, char** argv) {
         }
         yyin = file;
     }
-
-    printf("Parsing...\n");
-    yyparse();
-    printf("Parsing finished.\n");
-
-    // if you stored the root AST node from the parser, you'd print it here
-    print_ast(root, 0);
-    semantic_check(root);
     
-    print_symbol_table();
-    printf("Generating code...");
-    generate_code(root, "out.tac");
-
+    printf("Parsing...\n");
+    int parse_result = yyparse();
+    
+    // Check if parsing was successful
+    if (syntax_errors > 0) {
+        printf("Compilation aborted due to syntax errors.\n");
+        return 1;
+    }
+    
+    printf("Parsing finished.\n");
+    
+    // Only proceed if we have a valid AST
+    if (root) {
+        print_ast(root, 0);
+        semantic_check(root);
+        print_symbol_table();
+        printf("Generating code...\n");
+        generate_code(root, "out.tac");
+    } else {
+        printf("No valid AST was produced.\n");
+        return 1;
+    }
+    
     return 0;
 }
