@@ -66,6 +66,64 @@ void generate_stmt(ASTNode* node) {
             break;
         }
 
+        case NODE_IF: {
+            char* cond = generate_expr(node->if_stmt.condition);
+            char label_if[16], label_else[16], label_end[16];
+            static int label_index = 0;
+            snprintf(label_if, sizeof(label_if), "L%d", label_index++);
+            snprintf(label_else, sizeof(label_else), "L%d", label_index++);
+            snprintf(label_end, sizeof(label_end), "L%d", label_index++);
+
+            // if cond goto label_if
+            snprintf(tac[tac_index].op, 8, "ifgoto");
+            strcpy(tac[tac_index].arg1, cond);
+            strcpy(tac[tac_index].arg2, label_if);
+            tac[tac_index].result[0] = '\0';
+            tac_index++;
+
+            // goto label_else
+            snprintf(tac[tac_index].op, 8, "goto");
+            strcpy(tac[tac_index].arg1, label_else);
+            tac[tac_index].arg2[0] = '\0';
+            tac[tac_index].result[0] = '\0';
+            tac_index++;
+
+            // label_if:
+            snprintf(tac[tac_index].op, 8, "label");
+            strcpy(tac[tac_index].arg1, label_if);
+            tac[tac_index].arg2[0] = '\0';
+            tac[tac_index].result[0] = '\0';
+            tac_index++;
+
+            generate_stmt(node->if_stmt.if_body);
+
+            // goto label_end
+            snprintf(tac[tac_index].op, 8, "goto");
+            strcpy(tac[tac_index].arg1, label_end);
+            tac[tac_index].arg2[0] = '\0';
+            tac[tac_index].result[0] = '\0';
+            tac_index++;
+
+            // label_else:
+            snprintf(tac[tac_index].op, 8, "label");
+            strcpy(tac[tac_index].arg1, label_else);
+            tac[tac_index].arg2[0] = '\0';
+            tac[tac_index].result[0] = '\0';
+            tac_index++;
+
+            if (node->if_stmt.else_body)
+                generate_stmt(node->if_stmt.else_body);
+
+            // label_end:
+            snprintf(tac[tac_index].op, 8, "label");
+            strcpy(tac[tac_index].arg1, label_end);
+            tac[tac_index].arg2[0] = '\0';
+            tac[tac_index].result[0] = '\0';
+            tac_index++;
+
+            break;
+        }
+
         default:
             break;
     }
@@ -118,6 +176,12 @@ void emit_TAC_to_file(const char* filename) {
             fprintf(f, "print %s\n", tac[i].arg1);
         } else if (strcmp(tac[i].op, "=") == 0) {
             fprintf(f, "%s = %s\n", tac[i].result, tac[i].arg1);
+        } else if (strcmp(tac[i].op, "ifgoto") == 0) {
+            fprintf(f, "if %s goto %s\n", tac[i].arg1, tac[i].arg2);
+        } else if (strcmp(tac[i].op, "goto") == 0) {
+            fprintf(f, "goto %s\n", tac[i].arg1);
+        } else if (strcmp(tac[i].op, "label") == 0) {
+            fprintf(f, "%s:\n", tac[i].arg1);
         } else {
             fprintf(f, "%s = %s %s %s\n", tac[i].result, tac[i].arg1, tac[i].op, tac[i].arg2);
         }
