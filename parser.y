@@ -1,4 +1,4 @@
-/* parser.y */
+/*  parser.y */
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +11,7 @@ int yylex(void);
 void yyerror(const char *s);
 extern FILE *yyin;
 extern int yylineno;
+extern int print_tokens; // Add reference to print_tokens flag
 int syntax_errors = 0;  // Add a counter for syntax errors
 %}
 
@@ -99,8 +100,17 @@ int main(int argc, char** argv) {
         yyin = file;
     }
     
-    printf("Parsing...\n");
+    // Enable token printing
+    print_tokens = 1;
+    
+    // Print the lexical analysis header
+    printf("\n-----------------------------LEXICAL ANALYSIS-----------------------\n");
+    
+    // Parse the input which will also print tokens as they're scanned
     int parse_result = yyparse();
+    
+    // Disable token printing after first pass (in case we need to parse again)
+    print_tokens = 0;
     
     // Check if parsing was successful
     if (syntax_errors > 0) {
@@ -108,13 +118,20 @@ int main(int argc, char** argv) {
         return 1;
     }
     
-    printf("Parsing finished.\n");
+    // Print the syntax analysis header
+    printf("\n--------------------------SYNTAX ANALYSIS---------------------\n");
     
     // Only proceed if we have a valid AST
     if (root) {
         print_ast(root, 0);
+        
+        // Print the semantic analysis header
+        printf("\n----------------------SEMANTIC ANALYSIS----------------\n");
         semantic_check(root);
         print_symbol_table();
+        
+        // Print the code generation header
+        printf("\n----------------------CODE GENERATION----------------\n");
         printf("Generating code...\n");
         generate_code(root, "out.tac");
     } else {
