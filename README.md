@@ -1,4 +1,4 @@
-# compiler-construction
+# COMPILER CONSTRUCTION
 Attempt at a simple C compiler 
 
 
