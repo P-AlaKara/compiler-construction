@@ -7,15 +7,10 @@
 #include <string.h>
 #include <ctype.h>
 
-
-// Declare yyin - input file pointer, used by Lex/Flex.
+//input file pointer, used by Flex.
 extern FILE *yyin;
 
-// **REQUIRED:** Declare yylineno - managed by Lex/Flex when %option yylineno is used
-extern int yylineno; // <-- Declare yylineno here
-
-/* Remove 'int current_line = 1;' */
-/* Remove '// extern int yylineno;' */
+extern int yylineno; 
 
 %}
 
