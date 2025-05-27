@@ -508,4 +508,208 @@ This section, positioned after the second `%%`, contains arbitrary C code that i
         * **Code Generation**: A header for "CODE GENERATION" is printed, and then `generate_code(root, "out.tac")` is called. This function, defined in `codegen.h`/`codegen.c`, would traverse the AST and generate intermediate code (in this case, "three-address code" to "out.tac").
     * If no valid AST was produced (e.g., due to parsing errors that prevented `root` from being set), an appropriate message is printed.
     * **Return Value**: The `main` function returns `0` on successful compilation and `1` on error.
+
+---
+
+# Intermediate Code Representation 
+
+## 1. Overview
+
+The **Intermediate Code Generation (ICG)** phase is a crucial step in the compilation process. It acts as a bridge, transforming the high-level program represented by the Abstract Syntax Tree (AST) into a simplified, machine-independent format.
+
+**Why do we need it?**
+* **Abstraction:** It takes complex, hierarchical AST structures and flattens them into a linear sequence of operations.
+* **Machine Independence:** The output isn't tied to any specific computer architecture, making it easier to port the compiler to different machines or to generate code for multiple targets.
+* **Optimization Ready:** This intermediate form is ideal for applying various compiler optimizations (like removing redundant code or simplifying calculations) before generating the final machine code.
+
+This compiler uses **Three-Address Code (TAC)** as its intermediate representation.
+
+**Three-Address Code (TAC):**
+TAC is a simple yet powerful form where each instruction typically has at most three "addresses" or operands: two for the arguments and one for the result. This breaks down complicated operations into basic, atomic steps.
+
+For example, a complex expression like `result = (a + b) * (c - d)` would be broken down into individual TAC instructions using **temporary variables** (`t0`, `t1`, etc.) to store intermediate results:
+
+```
+t0 = a + b
+t1 = c - d
+result = t0 * t1
+```
+
+The output of this phase is a sequence of these Three-Address Code instructions, collected in an in-memory array and then written to a specified output file.
+
+---
+
+## 2. Pseudocode: TAC Generator Algorithm
+
+The core of our Intermediate Code Generator involves a recursive traversal of the AST. Different types of AST nodes are handled by specialized functions that emit the corresponding TAC instructions.
+
+### Main Entry Point: `generate_code(root_node, output_filename)`
+
+This function kicks off the code generation process.
+
+```pseudocode
+Function generate_code(root_node, output_filename):
+    // Initialize counters for TAC instructions and temporary variables
+    Reset global tac_index = 0
+    Reset global temp_index = 0
+
+    // Start the recursive traversal from the root of the AST
+    Call generate_stmt(root_node)
+
+    // Once all TAC is generated, write it to the specified file
+    Call emit_TAC_to_file(output_filename)
+```
+
+### Statement Generation: `generate_stmt(node)`
+
+This function is responsible for translating various kinds of **statements** into sequences of TAC instructions. It often calls `generate_expr` to handle any expressions found within the statements.
+
+```pseudocode
+Function generate_stmt(node):
+    If node is null, return
+
+    Switch (node.type):
+        Case NODE_STMT_LIST:
+            // Process each statement in a block sequentially
+            For each statement 's' in node.stmt_list.stmts:
+                Call generate_stmt(s) // Recursively generate TAC for each statement
+
+        Case NODE_DECL:
+            // If a declaration includes an initial value, generate assignment TAC
+            If node.decl.init_value exists:
+                result_of_expr = Call generate_expr(node.decl.init_value)
+                Emit TAC: "node.decl.var_name = result_of_expr"
+
+        Case NODE_ASSIGN:
+            // Generate TAC for variable assignment
+            result_of_expr = Call generate_expr(node.assign.expr)
+            Emit TAC: "node.assign.var_name = result_of_expr"
+
+        Case NODE_PRINT:
+            // Generate TAC for printing an expression's value
+            result_of_expr = Call generate_expr(node.print_expr)
+            Emit TAC: "print result_of_expr"
+
+        Case NODE_IF:
+            // Generate unique labels to control flow for if-else statements
+            label_if = new_label()     // For the 'then' block
+            label_else = new_label()   // For the 'else' block (or after 'if' if no else)
+            label_end = new_label()    // For the point after the entire if-else construct
+
+            // Evaluate the if condition
+            cond_result = Call generate_expr(node.if_stmt.condition)
+
+            // Emit TAC for the conditional jump
+            Emit TAC: "if cond_result goto label_if"
+
+            // If the condition is false, jump to the 'else' block
+            Emit TAC: "goto label_else"
+
+            // Mark the beginning of the 'then' block
+            Emit TAC: "label label_if"
+            Call generate_stmt(node.if_stmt.if_body) // Recursively generate TAC for the 'then' block
+
+            // After the 'then' block, jump to the end of the if-else to skip 'else'
+            Emit TAC: "goto label_end"
+
+            // Mark the beginning of the 'else' block
+            Emit TAC: "label label_else"
+            If node.if_stmt.else_body exists:
+                Call generate_stmt(node.if_stmt.else_body) // Recursively generate TAC for the 'else' block
+
+            // Mark the end of the entire if-else construct
+            Emit TAC: "label label_end"
+
+        Default:
+            // Handle any unhandled or unexpected statement types
+            Do nothing or report error
+    End Switch
+```
+
+### Expression Generation: `generate_expr(node)`
+
+This function handles the translation of **expressions** into TAC. It returns the name of the variable (either a program variable or a temporary) where the final result of the expression is stored.
+
+```pseudocode
+Function generate_expr(node):
+    If node is null, return "?" (error placeholder)
+
+    Switch (node.type):
+        Case NODE_INT:
+            // Return the string representation of an integer literal (e.g., "5")
+            Return string_of(node.int_value)
+
+        Case NODE_BOOL:
+            // Return the string representation of a boolean literal (e.g., "0" or "1")
+            Return string_of(node.int_value)
+
+        Case NODE_VAR:
+            // Return the name of the variable (e.g., "x")
+            Return node.var_name
+
+        Case NODE_BINOP:
+            // Recursively generate TAC for left and right operands
+            left_result = Call generate_expr(node.binop.left)
+            right_result = Call generate_expr(node.binop.right)
+
+            // Get a new temporary variable to store the result of this operation
+            temp_var = Call new_temp()
+
+            // Emit TAC for the binary operation
+            Emit TAC: "temp_var = left_result node.binop.op right_result"
+
+            // The temporary variable holds the result of this expression
+            Return temp_var
+
+        Default:
+            // Handle any unhandled or unexpected expression types
+            Return "?" (error placeholder)
+    End Switch
+```
+
+### Helper Functions:
+
+* **`new_temp()`**: Generates and returns a unique name for a temporary variable (e.g., `t0`, `t1`, `t2`). These are crucial for breaking down complex expressions into single-operation TAC instructions.
+* **`new_label()`**: Generates and returns a unique label name (e.g., `L0`, `L1`, `L2`). These are used for control flow instructions like `goto` and `ifgoto`.
+* **`emit_TAC_to_file(filename)`**: This utility function is responsible for iterating through the entire list of generated TAC instructions and writing them to the specified output file in a human-readable format.
+
+---
+
+## 3. Sample Output
+
+Let's look at an example C-like program and the Three-Address Code (3AC) that would be generated by this phase.
+
+**Sample Program (C-like Source Code):**
+
+```c
+int x = 5;
+bool flag = true;
+if (x > 5) {
+    print x;
+    x = x + 1;
+} else {
+    print 0;
+    flag = false;
+}
+print flag;
+```
+
+**Resulting Three-Address Code (3AC):**
+
+```
+x = 5
+flag = 1
+t0 = x > 5
+if t0 goto L0
+goto L1
+L0:
+print x
+t1 = x + 1
+x = t1
+goto L2
+L1:
+print 0
+flag = 0
+L2:
+print flag
 ```
